@@ -1,0 +1,7 @@
+pywebview
+minecraft-launcher-lib
+fastapi
+uvicorn
+PyGObject
+pystray
+mcstatus

@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
+<title>Athilia · Лаунчер</title>
+
+<!-- Тема до отрисовки, чтобы не было вспышки -->
+<script>
+  (function () {
+    const saved = localStorage.getItem('athilia-theme');
+    const dark = saved ? saved === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+    if (dark) document.documentElement.classList.add('dark');
+  })();
+</script>
+
+<!-- Шрифты: Unbounded (дисплейный) + Nunito (текстовый), кириллица -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@300;400;500;600;700&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<!-- Tailwind (утилиты для раскладки) -->
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+<!-- Lucide иконки -->
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+
+<style>
+/* ═══════════════════════ ТЕМА / ПЕРЕМЕННЫЕ ═══════════════════════ */
+:root{
+  --font-d:'Unbounded',sans-serif;
+  --font-b:'Nunito',sans-serif;
+
+  --bg:#f3fafb;
+  --veil-1:rgba(243,250,251,.9);
+  --veil-2:rgba(243,250,251,.4);
+  --surface:rgba(255,255,255,.72);
+  --surface-2:rgba(255,255,255,.5);
+  --surface-hi:rgba(255,255,255,.92);
+  --stroke:rgba(70,140,155,.12);
+  --stroke-soft:rgba(70,140,155,.07);
+  --text:#274652;
+  --muted:#7b9aa3;
+  --accent:#4fc4c0;
+  --teal:#7fdcd4;
+  --sky:#8fd3f4;
+  --glow:rgba(127,220,212,.45);
+  --input-bg:rgba(255,255,255,.86);
+  --chip:rgba(79,196,192,.10);
+  --shadow:0 24px 60px -24px rgba(60,130,140,.2);
+  --shadow-lg:0 34px 90px -30px rgba(60,130,140,.28);
+  --aur-op:.35; --aur-blend:normal;
+  --photo-op:.4; --photo-filter:blur(3px) saturate(.62) brightness(1.22) contrast(.88);
+  --paint-op:.55;
+  --ok:#5fbfa0; --err:#e8919c;
+}
+html.dark{
+  --bg:#0c1c26;
+  --veil-1:rgba(10,24,33,.86);
+  --veil-2:rgba(10,24,33,.32);
+  --surface:rgba(18,36,48,.6);
+  --surface-2:rgba(24,44,58,.4);
+  --surface-hi:rgba(28,50,64,.85);
+  --stroke:rgba(150,210,215,.14);
+  --stroke-soft:rgba(150,210,215,.07);
+  --text:#e6f4f4;
+  --muted:#8fb2ba;
+  --accent:#7fdcd4;
+  --input-bg:rgba(9,21,30,.6);
+  --chip:rgba(127,220,212,.10);
+  --shadow:0 24px 70px -24px rgba(0,0,0,.6);
+  --shadow-lg:0 36px 100px -30px rgba(0,0,0,.7);
+  --aur-op:.3; --aur-blend:screen;
+  --photo-op:.32; --photo-filter:blur(4px) saturate(.7) brightness(.62) contrast(.9);
+  --paint-op:.4;
+  --ok:#6fd7bb; --err:#f0a0ab;
+}
+
+*{ -webkit-tap-highlight-color:transparent; }
+::selection{ background:rgba(45,212,191,.35); }
+html,body{ height:100%; }
+body{
+  font-family:var(--font-b);
+  background:var(--bg);
+  color:var(--text);
+  overflow:hidden;
+  user-select:none;
+  transition:background .5s ease,color .5s ease;
+}
+input{ user-select:text; }
+
+/* ═══════════════════════ ФОН: фото + аврора + вуаль ═══════════════════════ */
+.scene{ position:fixed; inset:0; z-index:0; overflow:hidden; }
+.bg-photo{
+  position:absolute; inset:-4%;
+  width:108%; height:108%;
+  object-fit:cover;
+  opacity:var(--photo-op);
+  filter:var(--photo-filter);
+  transform:scale(1.02);
+  transition:opacity .6s ease, filter .6s ease;
+}
+/* Пастельная "акварельная" плёнка поверх фото - даёт нарисованный, а не фотографичный вид */
+.paint{
+  position:absolute; inset:0;
+  opacity:var(--paint-op);
+  mix-blend-mode:soft-light;
+  background:
+    radial-gradient(120% 80% at 18% 10%, #ffffff 0%, transparent 55%),
+    radial-gradient(90% 70% at 85% 20%, #bfe9f4 0%, transparent 60%),
+    radial-gradient(100% 80% at 50% 100%, #bdeee6 0%, transparent 62%),
+    linear-gradient(180deg, #eafcfb 0%, #dff4f3 100%);
+  transition:opacity .6s ease;
+}
+html.dark .paint{ mix-blend-mode:overlay; }
+.aurora span{
+  position:absolute; border-radius:50%;
+  filter:blur(90px);
+  opacity:var(--aur-op);
+  mix-blend-mode:var(--aur-blend);
+  transition:opacity .6s ease;
+}
+.a1{ width:54vw;height:54vw;left:-14vw;top:-20vw;
+     background:radial-gradient(circle,#5eead4 0%,transparent 62%);
+     animation:drift1 24s ease-in-out infinite; }
+.a2{ width:46vw;height:46vw;right:-12vw;top:4vh;
+     background:radial-gradient(circle,#7dd3fc 0%,transparent 62%);
+     animation:drift2 30s ease-in-out infinite; }
+.a3{ width:42vw;height:42vw;left:26vw;bottom:-22vw;
+     background:radial-gradient(circle,#a7f3d0 0%,transparent 58%);
+     animation:drift1 36s ease-in-out infinite reverse; }
+@keyframes drift1{ 0%,100%{transform:translate(0,0) scale(1)} 50%{transform:translate(5vw,4vh) scale(1.12)} }
+@keyframes drift2{ 0%,100%{transform:translate(0,0) scale(1.05)} 50%{transform:translate(-4vw,6vh) scale(.95)} }
+
+.veil{
+  position:absolute; inset:0;
+  background:
+    radial-gradient(120% 90% at 50% 110%, var(--veil-2), transparent 60%),
+    linear-gradient(180deg, var(--veil-1) 0%, var(--veil-2) 34%, var(--veil-2) 62%, var(--veil-1) 100%);
+  transition:background .5s ease;
+}
+.vignette{
+  position:absolute; inset:0;
+  background:radial-gradient(90% 90% at 50% 45%, transparent 55%, rgba(6,20,28,.18) 100%);
+}
+html.dark .vignette{ background:radial-gradient(90% 90% at 50% 45%, transparent 50%, rgba(0,0,0,.42) 100%); }
+
+#snow{ position:fixed; inset:0; z-index:4; pointer-events:none; }
+
+/* ═══════════════════════ ФОНАРИ (ламповость!) ═══════════════════════ */
+.lantern{
+  position:fixed; top:0; z-index:6; pointer-events:none;
+  transform-origin:top center;
+  animation:sway 8s ease-in-out infinite;
+  filter:drop-shadow(0 6px 14px rgba(0,0,0,.12));
+}
+.lan-a{ left:44.5%; }
+.lan-b{ left:57%; animation-delay:-3.6s; animation-duration:9.5s; }
+.lchain{ width:2px; margin:0 auto; background:linear-gradient(to bottom,transparent,rgba(90,70,45,.7) 30%); }
+.lan-a .lchain{ height:76px; } .lan-b .lchain{ height:148px; }
+.lcap{ width:30px; height:9px; margin:0 auto; border-radius:6px 6px 3px 3px; background:linear-gradient(#83673f,#5c4628); }
+.lglass{
+  position:relative; width:46px; height:58px; margin:0 auto; border-radius:13px;
+  background:radial-gradient(circle at 50% 42%,#fff6cf 0%,#ffda7d 42%,#f5a742 76%,rgba(245,167,66,.14) 100%);
+  box-shadow:0 0 22px 7px rgba(255,197,90,.5),0 0 72px 26px rgba(255,178,66,.2);
+  animation:flick 3.8s ease-in-out infinite;
+}
+html.dark .lglass{ box-shadow:0 0 26px 9px rgba(255,197,90,.62),0 0 96px 36px rgba(255,178,66,.3); }
+.flame{
+  position:absolute; left:50%; top:52%; width:8px; height:13px;
+  transform:translate(-50%,-50%); border-radius:50% 50% 46% 46%;
+  background:radial-gradient(circle at 50% 66%,#fff 0%,#ffe9a8 55%,#f59e0b 100%);
+}
+.lframe{
+  position:absolute; inset:0; border-radius:13px; border:2px solid rgba(82,60,31,.62);
+  background:linear-gradient(90deg,transparent 29%,rgba(82,60,31,.55) 29%,rgba(82,60,31,.55) 34%,transparent 34%,transparent 66%,rgba(82,60,31,.55) 66%,rgba(82,60,31,.55) 71%,transparent 71%);
+}
+.lbase{ width:32px; height:8px; margin:0 auto; border-radius:3px 3px 6px 6px; background:linear-gradient(#5c4628,#41311d); }
+@keyframes sway{ 0%,100%{transform:rotate(-1.9deg)} 50%{transform:rotate(2.3deg)} }
+@keyframes flick{ 0%,100%{opacity:1} 41%{opacity:.9} 45%{opacity:1} 67%{opacity:.93} 72%{opacity:1} }
+@media (max-width:1180px){ .lantern{ display:none; } }
+
+/* ═══════════════════════ СТЕКЛО / КАРТОЧКИ ═══════════════════════ */
+.glass{
+  background:var(--surface);
+  border:1px solid var(--stroke);
+  box-shadow:var(--shadow);
+  backdrop-filter:blur(22px) saturate(1.3);
+  -webkit-backdrop-filter:blur(22px) saturate(1.3);
+  transition:background .5s ease,border-color .5s ease,box-shadow .5s ease,transform .35s ease;
+}
+
+/* Верхняя панель */
+.topbar{ -webkit-app-region:drag; }
+.no-drag{ -webkit-app-region:no-drag; }
+
+.wordmark{
+  font-family:var(--font-d); font-weight:600; font-size:22px; letter-spacing:.34em;
+  background:linear-gradient(100deg,var(--accent) 10%,var(--sky) 90%);
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+}
+.tagline{ font-size:11.5px; color:var(--muted); letter-spacing:.14em; text-transform:uppercase; font-weight:600; }
+
+.icon-btn{
+  width:42px; height:42px; border-radius:13px; display:grid; place-items:center;
+  background:var(--surface-2); border:1px solid var(--stroke); color:var(--muted);
+  transition:all .3s ease; cursor:pointer;
+}
+.icon-btn:hover{ color:var(--accent); border-color:rgba(45,212,191,.4); transform:translateY(-1px); }
+.icon-btn:active{ transform:scale(.94); }
+.icon-sm{ width:36px; height:36px; border-radius:11px; flex:none; }
+.ic-sun{ display:none; } html.dark .ic-sun{ display:block; } html.dark .ic-moon{ display:none; }
+
+.pill-online{
+  display:flex; align-items:center; gap:8px; padding:9px 14px; border-radius:999px;
+  background:var(--surface-2); border:1px solid var(--stroke);
+  font-size:12.5px; font-weight:700; color:var(--muted);
+}
+.dot{ width:7px; height:7px; border-radius:50%; background:var(--ok); position:relative; }
+.dot::after{ content:''; position:absolute; inset:-4px; border-radius:50%; border:1.5px solid var(--ok); opacity:.6; animation:ping 1.8s ease-out infinite; }
+.dot.off{ background:var(--err); }
+.dot.off::after{ display:none; }
+@keyframes ping{ 0%{transform:scale(.5);opacity:.7} 80%,100%{transform:scale(1.4);opacity:0} }
+
+/* ═══════════════════════ НОВОСТИ (слева, по центру) ═══════════════════════ */
+.news-card{ width:100%; max-width:412px; border-radius:28px; padding:22px 20px 16px; display:flex; flex-direction:column; max-height:min(72vh,640px); }
+.news-head{ display:flex; align-items:center; gap:11px; padding:0 4px 14px; }
+.news-ico{
+  width:38px; height:38px; border-radius:12px; display:grid; place-items:center; flex:none;
+  background:linear-gradient(135deg,rgba(45,212,191,.22),rgba(56,189,248,.2));
+  color:var(--accent); border:1px solid var(--stroke);
+}
+.news-tabs{ display:flex; gap:6px; padding:0 4px 14px; flex-wrap:wrap; }
+.tab{
+  padding:6px 13px; border-radius:999px; font-size:12px; font-weight:800; letter-spacing:.02em;
+  color:var(--muted); background:transparent; border:1px solid transparent; cursor:pointer;
+  transition:all .25s ease;
+}
+.tab:hover{ color:var(--text); }
+.tab.on{ color:var(--accent); background:var(--chip); border-color:rgba(45,212,191,.28); }
+
+.news-list{ overflow-y:auto; padding:2px 4px 4px; margin-right:-6px; padding-right:10px; display:flex; flex-direction:column; gap:10px; flex:1; min-height:0; }
+.news-list::-webkit-scrollbar{ width:4px; }
+.news-list::-webkit-scrollbar-thumb{ background:rgba(120,170,180,.35); border-radius:99px; }
+.news-list::-webkit-scrollbar-track{ background:transparent; }
+
+.news-item{
+  position:relative; padding:14px 16px 13px 18px; border-radius:18px;
+  background:var(--surface-2); border:1px solid var(--stroke-soft);
+  cursor:pointer; overflow:hidden;
+  transition:transform .3s cubic-bezier(.2,.8,.3,1.2), background .3s ease, border-color .3s ease;
+  animation:itemIn .5s cubic-bezier(.2,.8,.3,1) backwards;
+}
+.news-item::before{
+  content:''; position:absolute; left:0; top:14px; bottom:14px; width:3px; border-radius:99px;
+  background:var(--tag-c,var(--teal));
+}
+.news-item:hover{ transform:translateY(-2px) scale(1.01); background:var(--surface-hi); border-color:var(--stroke); }
+.news-top{ display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+.tag-chip{
+  font-size:10px; font-weight:800; letter-spacing:.08em; text-transform:uppercase;
+  padding:3px 9px; border-radius:999px;
+  color:var(--tag-c,#0d9488); background:var(--tag-bg,rgba(45,212,191,.14));
+}
+.news-item time{ font-size:11px; color:var(--muted); font-weight:700; margin-left:auto; }
+.news-item h4{ font-size:14.5px; font-weight:800; line-height:1.3; margin-bottom:4px; }
+.news-item p{ font-size:12.5px; line-height:1.5; color:var(--muted); font-weight:600; }
+.news-item .go{ position:absolute; right:12px; bottom:10px; color:var(--accent); opacity:0; transform:translateX(-6px); transition:all .3s ease; }
+.news-item:hover .go{ opacity:1; transform:translateX(0); }
+
+.t-update{ --tag-c:#0d9488; --tag-bg:rgba(45,212,191,.15); --tag-c:#0d9488; }
+.t-update::before, .t-update{ --tag-c:#14b8a6; }
+.t-event { --tag-c:#0284c7; --tag-bg:rgba(56,189,248,.16); }
+.t-server{ --tag-c:#d97706; --tag-bg:rgba(251,191,36,.18); }
+html.dark .t-server{ --tag-c:#fbbf24; }
+
+@keyframes itemIn{ from{ opacity:0; transform:translateY(14px); } }
+
+/* Скелетон загрузки */
+.skl{
+  height:84px; border-radius:18px; border:1px solid var(--stroke-soft);
+  background:linear-gradient(100deg,var(--surface-2) 32%, rgba(255,255,255,.4) 50%, var(--surface-2) 68%);
+  background-size:200% 100%; animation:skl 1.15s linear infinite;
+}
+html.dark .skl{ background:linear-gradient(100deg,var(--surface-2) 32%, rgba(255,255,255,.07) 50%, var(--surface-2) 68%); background-size:200% 100%; }
+@keyframes skl{ to{ background-position:-200% 0; } }
+.spin{ animation:rot .8s linear infinite; }
+@keyframes rot{ to{ transform:rotate(360deg); } }
+
+/* ═══════════════════════ ПРАВАЯ ПАНЕЛЬ: ник + ИГРАТЬ ═══════════════════════ */
+.play-card{ width:100%; max-width:430px; border-radius:30px; padding:30px 28px 26px; position:relative; overflow:hidden; }
+.play-card::before{
+  content:''; position:absolute; inset:0; pointer-events:none;
+  background:radial-gradient(80% 40% at 50% -10%, rgba(45,212,191,.14), transparent 70%);
+}
+.kicker{ font-size:10.5px; font-weight:800; letter-spacing:.3em; text-transform:uppercase; color:var(--accent); }
+.play-h{ font-family:var(--font-d); font-weight:500; font-size:25px; line-height:1.25; margin-top:10px; }
+.play-sub{ font-size:13.5px; color:var(--muted); font-weight:600; line-height:1.55; margin-top:8px; }
+
+.field-label{ display:block; font-size:11px; font-weight:800; letter-spacing:.16em; text-transform:uppercase; color:var(--muted); margin:24px 2px 8px; }
+.nick-wrap{
+  display:flex; align-items:center; gap:11px; height:56px; padding:0 16px;
+  background:var(--input-bg); border:1.5px solid var(--stroke); border-radius:18px;
+  transition:border-color .3s ease, box-shadow .3s ease, background .5s ease;
+}
+.nick-wrap:focus-within{ border-color:rgba(45,212,191,.65); box-shadow:0 0 0 4px rgba(45,212,191,.14), 0 0 28px -6px var(--glow); }
+.nick-wrap.ok{ border-color:rgba(16,185,129,.55); }
+.nick-wrap.err{ border-color:color-mix(in srgb, var(--err) 70%, transparent); box-shadow:0 0 0 4px color-mix(in srgb, var(--err) 12%, transparent); }
+.nick-ico{ color:var(--muted); flex:none; transition:color .3s; }
+.nick-wrap:focus-within .nick-ico{ color:var(--accent); }
+#nick{
+  flex:1; min-width:0; background:transparent; border:0; outline:0;
+  font-family:var(--font-b); font-size:16.5px; font-weight:800; letter-spacing:.02em; color:var(--text);
+}
+#nick::placeholder{ color:var(--muted); opacity:.65; font-weight:600; }
+.nick-count{ font-size:11px; font-weight:800; color:var(--muted); opacity:.7; flex:none; font-variant-numeric:tabular-nums; }
+.nick-hint{ display:flex; align-items:center; gap:6px; font-size:12px; font-weight:700; color:var(--muted); margin:8px 4px 0; min-height:18px; transition:color .3s; }
+.nick-hint.err{ color:var(--err); }
+.nick-hint.ok{ color:var(--ok); }
+
+/* Кнопка ИГРАТЬ */
+.play-btn{
+  position:relative; width:100%; height:66px; margin-top:20px;
+  border:0; border-radius:21px; overflow:hidden; cursor:not-allowed;
+  font-family:var(--font-d); font-size:16px; font-weight:600; letter-spacing:.16em;
+  display:flex; align-items:center; justify-content:center; gap:12px;
+  background:linear-gradient(135deg,#b7c5ca,#93a4ab);
+  color:rgba(255,255,255,.82);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.4), 0 12px 26px -14px rgba(80,100,110,.55);
+  transition:transform .35s cubic-bezier(.2,.8,.3,1.4), box-shadow .45s ease, filter .3s ease;
+}
+.play-btn.is-ready{
+  cursor:pointer; color:#fff; text-shadow:0 1px 10px rgba(2,80,90,.4);
+  background:linear-gradient(135deg,#2dd4bf 0%,#22b8d4 48%,#38bdf8 100%);
+  box-shadow:0 0 0 1.5px rgba(45,212,191,.4), 0 16px 44px -12px rgba(34,184,212,.6), 0 0 52px -6px var(--glow);
+}
+.play-btn.is-ready:hover{ transform:translateY(-2px) scale(1.015); box-shadow:0 0 0 1.5px rgba(45,212,191,.55), 0 22px 54px -12px rgba(34,184,212,.7), 0 0 70px -4px var(--glow); }
+.play-btn.is-ready:active{ transform:scale(.975); }
+.play-btn.is-loading{ pointer-events:none; filter:saturate(.85) brightness(.97); }
+.spinner{
+  width:20px; height:20px; border-radius:50%; flex:none;
+  border:2.5px solid rgba(255,255,255,.35); border-top-color:#fff;
+  animation:rot .7s linear infinite;
+}
+
+/* Условия запуска */
+.cond{
+  display:flex; align-items:center; gap:9px; padding:10px 14px; border-radius:14px;
+  background:var(--surface-2); border:1px solid var(--stroke-soft);
+  font-size:12.5px; font-weight:800; color:var(--muted);
+  transition:all .4s ease;
+}
+.cond .st{ width:18px; height:18px; position:relative; flex:none; }
+.cond .st .chk{ position:absolute; inset:0; opacity:0; transform:scale(.4); transition:all .4s cubic-bezier(.3,1.4,.4,1); color:var(--ok); }
+.cond .st .wt{ position:absolute; inset:2px; border-radius:50%; border:2px solid color-mix(in srgb, var(--muted) 40%, transparent); border-top-color:var(--muted); animation:rot 1s linear infinite; transition:opacity .3s; }
+.cond .st .crs{ position:absolute; inset:0; color:var(--err); opacity:.85; transition:all .3s ease; }
+.cond.is-done .crs{ opacity:0; transform:scale(.4); }
+.cond.is-done{ color:var(--text); border-color:rgba(16,185,129,.3); background:color-mix(in srgb, var(--ok) 7%, var(--surface-2)); }
+.cond.is-done .chk{ opacity:1; transform:scale(1); }
+.cond.is-done .wt{ opacity:0; }
+.init-caption{ font-size:11.5px; font-weight:700; color:var(--muted); text-align:center; margin-top:12px; opacity:.85; transition:opacity .5s; }
+
+/* ═══════════════════════ ПРОЧЕЕ ═══════════════════════ */
+.foot-chip{
+  position:fixed; z-index:8; display:flex; align-items:center; gap:7px;
+  font-size:10.5px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; color:var(--muted);
+  opacity:.75; pointer-events:none;
+}
+.toast{
+  display:flex; gap:12px; align-items:flex-start; min-width:300px; max-width:400px;
+  padding:14px 18px 14px 15px; border-radius:18px;
+  background:var(--surface-hi); border:1px solid var(--stroke);
+  box-shadow:var(--shadow-lg); backdrop-filter:blur(20px);
+  opacity:0; transform:translateY(18px) scale(.96);
+  transition:all .45s cubic-bezier(.2,.9,.3,1.15);
+}
+.toast.in{ opacity:1; transform:translateY(0) scale(1); }
+.toast-ic{ width:34px; height:34px; border-radius:11px; flex:none; display:grid; place-items:center; }
+
+.rise{ opacity:0; transform:translateY(26px); animation:rise .9s cubic-bezier(.2,.8,.25,1) forwards; }
+@keyframes rise{ to{ opacity:1; transform:translateY(0);} }
+.d1{ animation-delay:.08s } .d2{ animation-delay:.18s } .d3{ animation-delay:.3s } .d4{ animation-delay:.42s }
+
+@media (max-width:1023px){
+  body{ overflow:auto; }
+  .lantern{ display:none; }
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{ animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.15s !important; }
+}
+</style>
+</head>
+
+<body class="h-screen w-screen">
+
+  <!-- ═══════ СЛОИ ФОНА ═══════ -->
+  <div class="scene">
+    <!-- Зимняя деревня под северным сиянием - настроение Якутска -->
+    <img class="bg-photo" src="https://images.pexels.com/photos/36456792/pexels-photo-36456792.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=900&w=1600" alt="" draggable="false">
+    <div class="paint"></div>
+    <div class="aurora"><span class="a1"></span><span class="a2"></span><span class="a3"></span></div>
+    <div class="veil"></div>
+    <div class="vignette"></div>
+  </div>
+
+  <canvas id="snow"></canvas>
+
+  <!-- ═══════ ФОНАРИ ═══════ -->
+  <div class="lantern lan-a" aria-hidden="true">
+    <div class="lchain"></div><div class="lcap"></div>
+    <div class="lglass"><span class="flame"></span><span class="lframe"></span></div>
+    <div class="lbase"></div>
+  </div>
+  <div class="lantern lan-b" aria-hidden="true">
+    <div class="lchain"></div><div class="lcap"></div>
+    <div class="lglass"><span class="flame"></span><span class="lframe"></span></div>
+    <div class="lbase"></div>
+  </div>
+
+  <!-- ═══════ ВЕРХНЯЯ ПАНЕЛЬ ═══════ -->
+  <header class="topbar fixed top-0 left-0 right-0 z-20 flex items-center justify-between px-7 pt-5">
+    <div class="rise d1 flex items-center gap-3.5">
+      <div class="leading-tight">
+        <div class="wordmark">ATHILIA</div>
+        <div class="tagline mt-0.5">Уютный сервер · Якутск</div>
+      </div>
+    </div>
+
+    <div class="rise d2 flex items-center gap-2.5 no-drag">
+      <div class="pill-online" id="serverPill" title="Проверяем сервер…">
+        <span class="dot" id="serverDot"></span>
+        <span id="onlineCount">…</span>
+        <span class="opacity-70 font-semibold" id="onlineWord">онлайн</span>
+      </div>
+      <button id="themeBtn" class="icon-btn" aria-label="Переключить тему">
+        <i data-lucide="moon" class="ic-moon w-[18px] h-[18px]"></i>
+        <i data-lucide="sun" class="ic-sun w-[18px] h-[18px]"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- ═══════ ОСНОВНОЙ ЛЭЙАУТ ═══════ -->
+  <main class="relative z-10 h-full w-full flex items-center justify-between px-7 xl:px-14 pt-20 pb-14 gap-8
+               max-lg:h-auto max-lg:min-h-full max-lg:flex-col-reverse max-lg:justify-center max-lg:pt-28 max-lg:pb-20">
+
+    <!-- ───── ЛЕВО: НОВОСТИ (по центру Y) ───── -->
+    <aside class="rise d3 news-card glass">
+      <div class="news-head">
+        <div class="news-ico"><i data-lucide="newspaper" class="w-[19px] h-[19px]"></i></div>
+        <div class="leading-tight">
+          <div class="font-extrabold text-[15px]">Новости Athilia</div>
+          <div class="text-[11.5px] font-bold" style="color:var(--muted)">прямо из заснеженной столицы</div>
+        </div>
+        <button id="newsRefresh" class="icon-btn icon-sm no-drag ml-auto" title="Обновить новости">
+          <i data-lucide="refresh-cw" class="w-[15px] h-[15px]" id="refreshIc"></i>
+        </button>
+      </div>
+
+      <nav class="news-tabs no-drag" id="newsTabs">
+        <button class="tab on" data-f="all">Все</button>
+        <button class="tab" data-f="update">Обновления</button>
+        <button class="tab" data-f="event">События</button>
+        <button class="tab" data-f="server">Сервер</button>
+      </nav>
+
+      <div class="news-list" id="newsList" aria-live="polite"></div>
+    </aside>
+
+    <!-- ───── ПРАВО: НИК + КНОПКА ИГРАТЬ ───── -->
+    <section class="rise d4 play-card glass no-drag">
+      <div class="kicker flex items-center gap-2">
+        <i data-lucide="snowflake" class="w-3.5 h-3.5"></i>
+        Якутск
+      </div>
+      <h2 class="play-h">С возвращением,<br>путник севера</h2>
+      <p class="play-sub">Введите никнейм, заберите термос - и добро пожаловать в самый тёплый город самого холодного края.</p>
+
+      <label class="field-label" for="nick">Никнейм</label>
+      <div class="nick-wrap" id="nickWrap">
+        <i data-lucide="at-sign" class="nick-ico w-[18px] h-[18px]"></i>
+        <input id="nick" type="text" maxlength="16" placeholder="Steve_1998" autocomplete="off" spellcheck="false">
+        <span class="nick-count" id="nickCount">0/16</span>
+      </div>
+      <p class="nick-hint" id="nickHint">
+        <i data-lucide="info" class="w-3.5 h-3.5 flex-none"></i>
+        <span id="nickHintText">3-16 символов: латиница, цифры и «_»</span>
+      </p>
+
+      <!-- Условия запуска -->
+      <div class="grid grid-cols-2 gap-2.5 mt-4">
+        <div class="cond" id="condFiles">
+          <span class="st"><i data-lucide="check" class="chk w-[18px] h-[18px]"></i><i data-lucide="x" class="crs w-[18px] h-[18px]" style="opacity:0" id="filesCrs"></i><span class="wt" id="filesWt"></span></span>
+          <span>Файлы клиента</span>
+        </div>
+        <div class="cond" id="condNick">
+          <span class="st"><i data-lucide="check" class="chk w-[18px] h-[18px]"></i><i data-lucide="x" class="crs w-[18px] h-[18px]"></i></span>
+          <span>Никнейм</span>
+        </div>
+      </div>
+      <p class="init-caption" id="initCaption">Подключаемся к серверу…</p>
+
+      <!-- Кнопка ИГРАТЬ -->
+      <button id="playBtn" class="play-btn" disabled>
+        <span id="playIconWrap" class="flex-none flex"><i data-lucide="loader" class="w-5 h-5 spin"></i></span>
+        <span id="playLabel">ПОДГОТОВКА…</span>
+      </button>
+    </section>
+  </main>
+
+  <!-- ═══════ НИЗ: координаты / сборка ═══════ -->
+  <div class="foot-chip bottom-5 right-7 max-lg:hidden">
+    ATHILIA LAUNCHER V0.1.0
+  </div>
+
+  <!-- Тосты -->
+  <div id="toastWrap" class="fixed bottom-7 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2.5"></div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════
+   ATHILIA LAUNCHER · фронтенд для FastAPI-бэкенда
+   Страница отдаётся тем же сервером, поэтому пути относительные.
+
+   ЭНДПОИНТЫ БЭКЕНДА (127.0.0.1:8080):
+   GET  /api/state          -> "ready" | "no_client"
+   GET  /api/news           -> [{ id, tag, date, title, text }]
+   GET  /api/news/{id}      -> { ok, id }          (открыть новость)
+   GET  /api/files/check    -> { ok: boolean }     (клиент установлен?)
+   GET  /api/files/install  -> { ok: true } | 500  (установка клиента)
+   GET  /api/server/status  -> { online, players, max, version, latency }
+   POST /api/launch         body { nickname }      -> { ok, message }
+                              ошибки: 400/500 { detail: "..." }
+   ═══════════════════════════════════════════════════════════════════ */
+
+const $ = (s) => document.querySelector(s);
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/* ─────────── Клиент API ─────────── */
+const API = {
+  async get(path) {
+    const r = await fetch(path);
+    if (!r.ok) throw new Error('http ' + r.status);
+    return r.json();
+  },
+  state:       () => API.get('/api/state'),                // -> "ready" | "no_client"
+  news:        () => API.get('/api/news'),
+  openNews:    (id) => API.get(`/api/news/${id}`).catch(() => {}),
+  checkFiles:  () => API.get('/api/files/check'),
+  install:     () => API.get('/api/files/install'),
+  serverStatus: () => API.get('/api/server/status'),
+  async launch(nickname) {
+    const r = await fetch('/api/launch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nickname }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.detail || 'Сервер не ответил');
+    return j;
+  },
+};
+
+/* ═══════════════════════ НОВОСТИ ═══════════════════════ */
+// Фолбэк на случай, если страница открыта без запущенного бэкенда (превью)
+const STUB_NEWS = [
+  { tag: 'update', title: 'Открыт зимний спавн!',
+    text: 'Город укутали снегом: ледяные фонари, каток на набережной Лены и горячий чай у главного костра.',
+    date: '12 янв' },
+  { tag: 'event', title: 'Северное сияние в эти выходные',
+    text: 'В субботу в 19:00 по якутскому времени - небо вспыхнет. Смотровая площадка у алмазной шахты, вход свободный.',
+    date: '10 янв' },
+  { tag: 'server', title: 'Нас уже 100+ якутян',
+    text: 'Спасибо, что согреваете сервер! В честь этого - двойной опыт рыбалки всю неделю.',
+    date: '7 янв' },
+  { tag: 'update', title: 'Термосы и тёплые шапки',
+    text: 'Новая механика согрева: варите чай, надевайте шапку-ушанку и не замерзайте в тайге.',
+    date: '3 янв' },
+];
+const TAG_LABEL = { update: 'Обновление', event: 'Событие', server: 'Сервер' };
+let newsCache = [], newsFilter = 'all';
+
+function renderSkeleton(n = 3) {
+  $('#newsList').innerHTML = Array.from({ length: n }, () => '<div class="skl"></div>').join('');
+}
+
+function renderNews(list) {
+  newsCache = list;
+  const items = list.filter((n) => newsFilter === 'all' || n.tag === newsFilter);
+  $('#newsList').innerHTML = items.length
+    ? items.map((n, i) => `
+      <article class="news-item t-${n.tag}" data-id="${n.id ?? ''}" style="animation-delay:${i * 70}ms">
+        <div class="news-top">
+          <span class="tag-chip">${TAG_LABEL[n.tag] ?? 'Новость'}</span>
+          <time>${n.date ?? ''}</time>
+        </div>
+        <h4>${n.title}</h4>
+        <p>${n.text}</p>
+        <span class="go"><i data-lucide="arrow-right" class="w-4 h-4"></i></span>
+      </article>`).join('')
+    : `<p class="text-center py-8 text-sm font-bold" style="color:var(--muted)">Пока тихо - как в тайге после снегопада</p>`;
+  lucide.createIcons();
+}
+
+async function loadNews(withSkeleton = true) {
+  if (withSkeleton) renderSkeleton();
+  try {
+    const remote = await API.news();            // GET /api/news
+    renderNews(Array.isArray(remote) && remote.length ? remote : STUB_NEWS);
+  } catch {
+    renderNews(STUB_NEWS);                      // нет бэкенда - показываем фолбэк
+  }
+}
+
+/* Клик по новости - сообщаем бэкенду, чтобы открыл её */
+$('#newsList').addEventListener('click', (e) => {
+  const item = e.target.closest('.news-item');
+  if (item?.dataset.id) API.openNews(item.dataset.id);   // GET /api/news/{id}
+});
+
+$('#newsTabs').addEventListener('click', (e) => {
+  const b = e.target.closest('.tab'); if (!b) return;
+  document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('on', t === b));
+  newsFilter = b.dataset.f;
+  renderNews(newsCache.length ? newsCache : STUB_NEWS);
+});
+
+$('#newsRefresh').addEventListener('click', async () => {
+  $('#refreshIc').classList.add('spin');
+  await loadNews(true);
+  $('#refreshIc').classList.remove('spin');
+});
+
+/* ═══════════════════════ СОСТОЯНИЕ ЗАПУСКА ═══════════════════════ */
+const NICK_RE = /^[A-Za-z0-9_]{3,16}$/;
+let filesReady = false, filesChecked = false, installMode = false,
+    nickValid = false, nick = '';
+
+const nickInput = $('#nick'), nickWrap = $('#nickWrap'),
+      hint = $('#nickHint'), hintText = $('#nickHintText'),
+      playBtn = $('#playBtn'), playLabel = $('#playLabel'),
+      playIconWrap = $('#playIconWrap');
+
+function setPlayIcon(name) {
+  if (!name) { playIconWrap.innerHTML = ''; return; }
+  const spin = name === 'loader' ? ' spin' : '';
+  playIconWrap.innerHTML = name === 'spinner'
+    ? '<span class="spinner"></span>'
+    : `<i data-lucide="${name}" class="w-5 h-5${spin}"></i>`;
+  lucide.createIcons();
+}
+
+/* Кнопка «загорается», когда выполнены ВСЕ условия.
+   Если клиент не установлен - кнопка активна и предлагает скачать его. */
+function recompute() {
+  const ready = filesReady && nickValid;
+
+  playBtn.disabled = installMode ? false : !ready;
+  playBtn.classList.toggle('is-ready', installMode || ready);
+
+  // плашка «Файлы клиента»: спиннер -> галочка / красный крест
+  $('#condFiles').classList.toggle('is-done', filesReady);
+  $('#filesWt').style.opacity  = filesChecked ? '0' : '1';
+  $('#filesCrs').style.opacity = (filesChecked && !filesReady) ? '.85' : '0';
+  $('#condNick').classList.toggle('is-done', nickValid);
+
+  if (playBtn.classList.contains('is-loading')) return;
+  if (installMode)     { playLabel.textContent = 'СКАЧАТЬ КЛИЕНТ';    setPlayIcon('download'); }
+  else if (ready)      { playLabel.textContent = 'ИГРАТЬ';            setPlayIcon('play'); }
+  else if (!filesChecked || !filesReady) { playLabel.textContent = 'ПОДГОТОВКА…'; setPlayIcon('loader'); }
+  else                 { playLabel.textContent = 'ВВЕДИТЕ НИКНЕЙМ';   setPlayIcon(''); }
+}
+
+/* Проверка клиента через бэкенд: /api/state + /api/files/check */
+async function initClient() {
+  const cap = $('#initCaption');
+  try {
+    cap.textContent = 'Подключаемся к серверу…';
+    const st = await API.state();                       // "ready" | "no_client"
+
+    cap.textContent = 'Проверяем файлы клиента…';
+    const res = await API.checkFiles();                 // { ok: boolean }
+
+    filesChecked = true;
+    filesReady = !!(res && res.ok) || st === 'ready';
+    installMode = !filesReady;
+
+    if (filesReady) {
+      cap.style.opacity = '0';
+    } else {
+      cap.textContent = 'Клиент не найден - нажмите «Скачать клиент»';
+    }
+  } catch {
+    /* Бэкенд недоступен (страница открыта без сервера) - демо-режим */
+    filesChecked = true; filesReady = true; installMode = false;
+    cap.style.opacity = '0';
+  }
+  recompute();
+}
+
+/* Кнопка в режиме «СКАЧАТЬ КЛИЕНТ»: GET /api/files/install */
+async function doInstall() {
+  const cap = $('#initCaption');
+  playBtn.classList.add('is-loading');
+  playLabel.textContent = 'УСТАНОВКА…';
+  setPlayIcon('spinner');
+  cap.style.opacity = '1';
+  cap.textContent = 'Устанавливаем клиент - это может занять пару минут…';
+
+  try {
+    await API.install();
+    filesReady = true; installMode = false; filesChecked = true;
+    cap.style.opacity = '0';
+    toast('Клиент установлен', 'Всё готово - можно запускать игру.', 'ok');
+  } catch (e) {
+    console.error('[ATHILIA] Ошибка установки:', e);
+    cap.textContent = 'Ошибка установки - попробуйте ещё раз';
+    toast('Не удалось установить клиент', 'Проверьте соединение и повторите.', 'err');
+  } finally {
+    playBtn.classList.remove('is-loading');
+    recompute();
+  }
+}
+
+/* Валидация ника */
+nickInput.addEventListener('input', () => {
+  nick = nickInput.value.trim();
+  $('#nickCount').textContent = `${nick.length}/16`;
+  nickValid = NICK_RE.test(nick);
+
+  nickWrap.classList.toggle('ok', nickValid);
+  nickWrap.classList.toggle('err', !!nick && !nickValid);
+  hint.classList.toggle('err', !!nick && !nickValid);
+  hint.classList.toggle('ok', nickValid);
+  hintText.textContent = !nick
+    ? '3-16 символов: латиница, цифры и «_»'
+    : nickValid
+      ? `Отличный ник, ${nick}!`
+      : 'Только латиница, цифры и «_», от 3 до 16 символов';
+  recompute();
+});
+
+nickInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !playBtn.disabled) playBtn.click();
+});
+
+/* Нажали главную кнопку: установка клиента или запуск игры с ником */
+playBtn.addEventListener('click', async () => {
+  if (playBtn.disabled || playBtn.classList.contains('is-loading')) return;
+  if (installMode) return doInstall();                    // клиент не найден - качаем
+
+  playBtn.classList.add('is-loading');
+  playLabel.textContent = 'ЗАПУСКАЕМ…';
+  setPlayIcon('spinner');
+
+  try {
+    await API.launch(nick);                               // POST /api/launch { nickname }
+
+    playLabel.textContent = 'ИГРА ЗАПУЩЕНА - ПРИЯТНОЙ ИГРЫ!';
+    setPlayIcon('check');
+    toast(`Приятной игры, ${nick}! :)`, '', 'ok');
+    await sleep(2600);
+  } catch (err) {
+    console.error('[ATHILIA] Ошибка запуска:', err);
+    toast('Не удалось запустить игру', err.message || 'Попробуйте ещё раз.', 'err');
+  } finally {
+    playBtn.classList.remove('is-loading');
+    recompute();
+  }
+});
+
+/* ═══════════════════════ ТОСТЫ ═══════════════════════ */
+function toast(title, msg, type = 'ok') {
+  const el = document.createElement('div');
+  el.className = 'toast';
+  const bg = type === 'ok' ? 'rgba(16,185,129,.14)' : 'color-mix(in srgb, var(--err) 14%, transparent)';
+  const col = type === 'ok' ? 'var(--ok)' : 'var(--err)';
+  el.innerHTML = `
+    <span class="toast-ic" style="background:${bg};color:${col}">
+      <i data-lucide="${type === 'ok' ? 'send' : 'triangle-alert'}" class="w-[17px] h-[17px]"></i>
+    </span>
+    <span class="min-w-0 self-center">
+      <span class="block text-[13.5px] font-extrabold">${title}</span>
+      ${msg ? `<span class="block text-[12px] font-semibold mt-0.5" style="color:var(--muted)">${msg}</span>` : ''}
+    </span>`;
+  $('#toastWrap').appendChild(el);
+  lucide.createIcons();
+  requestAnimationFrame(() => el.classList.add('in'));
+  setTimeout(() => { el.classList.remove('in'); setTimeout(() => el.remove(), 450); }, 4200);
+}
+
+/* ═══════════════════════ ТЕМА ═══════════════════════ */
+$('#themeBtn').addEventListener('click', () => {
+  const dark = document.documentElement.classList.toggle('dark');
+  localStorage.setItem('athilia-theme', dark ? 'dark' : 'light');
+});
+
+/* ═══════════════════════ СНЕГ ═══════════════════════ */
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const cv = $('#snow'), cx = cv.getContext('2d');
+let W, H, flakes = [], snowOn = true;
+const DPR = Math.min(devicePixelRatio || 1, 2);
+
+function sizeSnow() {
+  W = cv.width = innerWidth * DPR; H = cv.height = innerHeight * DPR;
+  cv.style.width = innerWidth + 'px'; cv.style.height = innerHeight + 'px';
+  const n = Math.min(130, Math.floor(innerWidth / 11));
+  flakes = Array.from({ length: n }, () => ({
+    x: Math.random() * W, y: Math.random() * H,
+    r: (Math.random() * 1.7 + 0.9) * DPR,
+    s: (Math.random() * 0.55 + 0.3) * DPR,
+    a: Math.random() * Math.PI * 2,
+    o: Math.random() * 0.45 + 0.3,
+  }));
+}
+function snowLoop() {
+  if (snowOn && !reduceMotion) {
+    cx.clearRect(0, 0, W, H);
+    const dark = document.documentElement.classList.contains('dark');
+    cx.fillStyle = dark ? 'rgba(255,255,255,.85)' : 'rgba(120,165,180,.8)';
+    for (const f of flakes) {
+      f.y += f.s; f.x += Math.sin(f.y * 0.0022 + f.a) * 0.45 * DPR;
+      if (f.y > H + 12) { f.y = -12; f.x = Math.random() * W; }
+      cx.globalAlpha = f.o;
+      cx.beginPath(); cx.arc(f.x, f.y, f.r, 0, 7); cx.fill();
+    }
+    cx.globalAlpha = 1;
+  }
+  requestAnimationFrame(snowLoop);
+}
+addEventListener('resize', sizeSnow);
+document.addEventListener('visibilitychange', () => { snowOn = !document.hidden; });
+sizeSnow(); snowLoop();
+
+/* ═══════════════════════ СТАТУС СЕРВЕРА (/api/server/status) ═══════════════════════ */
+let demoPlayers = 127;
+
+function applyServerStatus(s) {
+  const dot = $('#serverDot'), pill = $('#serverPill');
+  if (s.online) {
+    dot.classList.remove('off');
+    $('#onlineCount').textContent = s.players;
+    $('#onlineWord').textContent = 'онлайн';
+    pill.title = [
+      s.version ? `Версия: ${s.version}` : null,
+      `Игроков: ${s.players}/${s.max}`,
+      s.latency != null ? `Пинг: ${s.latency} мс` : null,
+    ].filter(Boolean).join('\n');
+  } else {
+    dot.classList.add('off');
+    $('#onlineCount').textContent = '';
+    $('#onlineWord').textContent = 'офлайн';
+    pill.title = 'Сервер недоступен';
+  }
+}
+
+async function pollServer() {
+  try {
+    applyServerStatus(await API.serverStatus());          // mcstatus-пинг с бэкенда
+  } catch {
+    // Бэкенд не запущен (превью): мягкая имитация, чтобы плашка не висела пустой
+    demoPlayers = Math.max(96, Math.min(160, demoPlayers + Math.floor(Math.random() * 9) - 4));
+    applyServerStatus({ online: true, players: demoPlayers, max: 200, version: '1.20.1', latency: 24 });
+  }
+  setTimeout(pollServer, 15000);
+}
+
+/* ═══════════════════════ СТАРТ ═══════════════════════ */
+lucide.createIcons();
+renderSkeleton();
+loadNews();
+initClient().then(recompute);
+pollServer();
+recompute();
+</script>
+</body>
+</html>
